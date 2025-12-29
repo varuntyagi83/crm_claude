@@ -192,6 +192,7 @@ describe('tasksApi', () => {
       const result = await tasksApi.create({
         title: 'New Task',
         assigned_to: 'u1',
+        merchant_id: 'm1',
       })
 
       expect(result).toEqual(mockTask)
@@ -209,6 +210,7 @@ describe('tasksApi', () => {
       await tasksApi.create({
         title: 'Task',
         assigned_to: 'u1',
+        merchant_id: 'm1',
       })
 
       expect(insertMock).toHaveBeenCalledWith(
@@ -216,7 +218,13 @@ describe('tasksApi', () => {
       )
     })
 
-    it('should throw error on failure', async () => {
+    it('should throw error when merchant_id is missing', async () => {
+      await expect(
+        tasksApi.create({ title: 'Test', assigned_to: 'u1', merchant_id: '' })
+      ).rejects.toThrow('merchant_id is required for task creation')
+    })
+
+    it('should throw error on database failure', async () => {
       vi.mocked(supabase.from).mockReturnValue({
         insert: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
@@ -224,7 +232,7 @@ describe('tasksApi', () => {
       } as any)
 
       await expect(
-        tasksApi.create({ title: 'Test', assigned_to: 'u1' })
+        tasksApi.create({ title: 'Test', assigned_to: 'u1', merchant_id: 'm1' })
       ).rejects.toEqual({ message: 'Error' })
     })
   })

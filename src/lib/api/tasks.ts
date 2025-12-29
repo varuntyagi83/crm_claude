@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import type { Task, TaskWithRelations } from '@/types/database'
+import type { Task, TaskWithRelations, Profile, Merchant } from '@/types/database'
 
 export interface ListTasksParams {
   assignedTo?: string
@@ -23,32 +23,36 @@ export const tasksApi = {
     const { data: tasks, error } = await query
     if (error) throw error
 
-    const results: TaskWithRelations[] = []
-    for (const task of tasks || []) {
-      const enriched: TaskWithRelations = { ...task }
+    if (!tasks || tasks.length === 0) return []
 
-      if (task.assigned_to) {
-        const { data: user } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', task.assigned_to)
-          .single()
-        enriched.assigned_user = user
-      }
+    // Batch fetch all unique user IDs and merchant IDs to avoid N+1 queries
+    const userIds = [...new Set(tasks.map(t => t.assigned_to).filter((id): id is string => Boolean(id)))]
+    const merchantIds = [...new Set(tasks.map(t => t.merchant_id).filter((id): id is string => Boolean(id)))]
 
-      if (task.merchant_id) {
-        const { data: merchant } = await supabase
-          .from('merchants')
-          .select('*')
-          .eq('id', task.merchant_id)
-          .single()
-        enriched.merchant = merchant
-      }
+    const userMap = new Map<string, Profile>()
+    const merchantMap = new Map<string, Merchant>()
 
-      results.push(enriched)
+    if (userIds.length > 0) {
+      const { data: users } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds)
+      users?.forEach(user => userMap.set(user.id, user))
     }
 
-    return results
+    if (merchantIds.length > 0) {
+      const { data: merchants } = await supabase
+        .from('merchants')
+        .select('*')
+        .in('id', merchantIds)
+      merchants?.forEach(merchant => merchantMap.set(merchant.id, merchant))
+    }
+
+    return tasks.map(task => ({
+      ...task,
+      assigned_user: task.assigned_to ? userMap.get(task.assigned_to) ?? null : null,
+      merchant: task.merchant_id ? merchantMap.get(task.merchant_id) ?? null : null,
+    }))
   },
 
   async getById(id: string): Promise<TaskWithRelations> {
@@ -103,30 +107,34 @@ export const tasksApi = {
     const { data: tasks, error } = await query
     if (error) throw error
 
-    const results: TaskWithRelations[] = []
-    for (const task of tasks || []) {
-      const enriched: TaskWithRelations = { ...task }
+    if (!tasks || tasks.length === 0) return []
 
-      if (task.assigned_to) {
-        const { data: user } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', task.assigned_to)
-          .single()
-        enriched.assigned_user = user
-      }
+    // Batch fetch all unique user IDs to avoid N+1 queries
+    const userIds = [...new Set(tasks.map(t => t.assigned_to).filter((id): id is string => Boolean(id)))]
+    const userMap = new Map<string, Profile>()
 
-      results.push(enriched)
+    if (userIds.length > 0) {
+      const { data: users } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds)
+      users?.forEach(user => userMap.set(user.id, user))
     }
 
-    return results
+    return tasks.map(task => ({
+      ...task,
+      assigned_user: task.assigned_to ? userMap.get(task.assigned_to) ?? null : null,
+    }))
   },
 
-  async create(task: { title: string; description?: string | null; merchant_id?: string | null; assigned_to: string; due_date?: string | null; created_by?: string }) {
+  async create(task: { title: string; description?: string | null; merchant_id: string; assigned_to: string; due_date?: string | null; created_by?: string }) {
+    if (!task.merchant_id) {
+      throw new Error('merchant_id is required for task creation')
+    }
+
     const payload = {
       ...task,
       created_by: task.created_by || task.assigned_to,
-      merchant_id: task.merchant_id || '', // Required field
     }
     const { data, error } = await supabase
       .from('tasks')
@@ -204,22 +212,23 @@ export const tasksApi = {
     const { data: tasks, error } = await query
     if (error) throw error
 
-    const results: TaskWithRelations[] = []
-    for (const task of tasks || []) {
-      const enriched: TaskWithRelations = { ...task }
+    if (!tasks || tasks.length === 0) return []
 
-      if (task.merchant_id) {
-        const { data: merchant } = await supabase
-          .from('merchants')
-          .select('*')
-          .eq('id', task.merchant_id)
-          .single()
-        enriched.merchant = merchant
-      }
+    // Batch fetch all unique merchant IDs to avoid N+1 queries
+    const merchantIds = [...new Set(tasks.map(t => t.merchant_id).filter((id): id is string => Boolean(id)))]
+    const merchantMap = new Map<string, Merchant>()
 
-      results.push(enriched)
+    if (merchantIds.length > 0) {
+      const { data: merchants } = await supabase
+        .from('merchants')
+        .select('*')
+        .in('id', merchantIds)
+      merchants?.forEach(merchant => merchantMap.set(merchant.id, merchant))
     }
 
-    return results
+    return tasks.map(task => ({
+      ...task,
+      merchant: task.merchant_id ? merchantMap.get(task.merchant_id) ?? null : null,
+    }))
   },
 }
