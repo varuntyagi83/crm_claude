@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { RoleGate } from '@/components/shared/RoleGate'
@@ -13,6 +14,7 @@ import { useTicketCounts, useTickets } from '@/hooks/useTickets'
 import { useRecentActivities } from '@/hooks/useActivities'
 import { useTotalVolume, useFailedRate, useDailyVolume } from '@/hooks/useTransactions'
 import { useMerchantCounts } from '@/hooks/useMerchants'
+import { TicketForm } from '@/components/tickets/TicketForm'
 import { Link } from 'react-router-dom'
 import { formatCurrency } from '@/lib/utils'
 import {
@@ -23,6 +25,7 @@ import {
   AlertTriangle,
   TrendingUp,
   DollarSign,
+  Plus,
 } from 'lucide-react'
 import {
   AreaChart,
@@ -188,27 +191,34 @@ function SupportDashboard() {
   const { data: counts } = useTicketCounts(user?.id)
   const { data: myTickets, isLoading: myTicketsLoading } = useTickets({ assignedTo: user?.id, limit: 5 })
   const { data: unassignedTickets, isLoading: unassignedLoading } = useTickets({ limit: 5 })
+  const [showTicketForm, setShowTicketForm] = useState(false)
 
   return (
     <div className="space-y-6">
-      {/* Metrics */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard
-          title="Open Tickets"
-          value={counts?.open ?? 0}
-          icon={Ticket}
-        />
-        <MetricCard
-          title="Urgent"
-          value={counts?.urgent ?? 0}
-          icon={AlertTriangle}
-          className={counts?.urgent && counts.urgent > 0 ? 'border-destructive' : ''}
-        />
-        <MetricCard
-          title="My Assigned"
-          value={counts?.assigned ?? 0}
-          icon={CheckSquare}
-        />
+      {/* Metrics with Create Ticket Button */}
+      <div className="flex items-center justify-between">
+        <div className="grid gap-4 md:grid-cols-3 flex-1">
+          <MetricCard
+            title="Open Tickets"
+            value={counts?.open ?? 0}
+            icon={Ticket}
+          />
+          <MetricCard
+            title="Urgent"
+            value={counts?.urgent ?? 0}
+            icon={AlertTriangle}
+            className={counts?.urgent && counts.urgent > 0 ? 'border-destructive' : ''}
+          />
+          <MetricCard
+            title="My Assigned"
+            value={counts?.assigned ?? 0}
+            icon={CheckSquare}
+          />
+        </div>
+        <Button onClick={() => setShowTicketForm(true)} className="ml-4">
+          <Plus className="h-4 w-4 mr-2" />
+          Create Ticket
+        </Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -294,6 +304,11 @@ function SupportDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Ticket Form Dialog */}
+      {showTicketForm && (
+        <TicketForm onClose={() => setShowTicketForm(false)} />
+      )}
     </div>
   )
 }
@@ -303,28 +318,35 @@ function OpsDashboard() {
   const { data: totalVolume, isLoading: volumeLoading } = useTotalVolume(30)
   const { data: failedRate, isLoading: rateLoading } = useFailedRate(30)
   const { data: dailyVolume, isLoading: chartLoading } = useDailyVolume(30)
+  const [showTicketForm, setShowTicketForm] = useState(false)
 
   return (
     <div className="space-y-6">
-      {/* Metrics */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard
-          title="Active Merchants"
-          value={merchantCounts?.active ?? 0}
-          icon={Store}
-        />
-        <MetricCard
-          title="Transaction Volume (30d)"
-          value={formatCurrency(totalVolume ?? 0)}
-          icon={DollarSign}
-          loading={volumeLoading}
-        />
-        <MetricCard
-          title="Failed Transaction Rate"
-          value={`${(failedRate ?? 0).toFixed(2)}%`}
-          icon={TrendingUp}
-          loading={rateLoading}
-        />
+      {/* Metrics with Create Ticket Button */}
+      <div className="flex items-center justify-between">
+        <div className="grid gap-4 md:grid-cols-3 flex-1">
+          <MetricCard
+            title="Active Merchants"
+            value={merchantCounts?.active ?? 0}
+            icon={Store}
+          />
+          <MetricCard
+            title="Transaction Volume (30d)"
+            value={formatCurrency(totalVolume ?? 0)}
+            icon={DollarSign}
+            loading={volumeLoading}
+          />
+          <MetricCard
+            title="Failed Transaction Rate"
+            value={`${(failedRate ?? 0).toFixed(2)}%`}
+            icon={TrendingUp}
+            loading={rateLoading}
+          />
+        </div>
+        <Button onClick={() => setShowTicketForm(true)} className="ml-4">
+          <Plus className="h-4 w-4 mr-2" />
+          Create Ticket
+        </Button>
       </div>
 
       {/* Volume Chart */}
@@ -359,6 +381,11 @@ function OpsDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Ticket Form Dialog */}
+      {showTicketForm && (
+        <TicketForm onClose={() => setShowTicketForm(false)} />
+      )}
     </div>
   )
 }
@@ -368,32 +395,39 @@ function AdminDashboard() {
   const { data: ticketCounts } = useTicketCounts()
   const { data: totalVolume, isLoading: volumeLoading } = useTotalVolume(30)
   const { data: dailyVolume, isLoading: chartLoading } = useDailyVolume(30)
+  const [showTicketForm, setShowTicketForm] = useState(false)
 
   return (
     <div className="space-y-6">
-      {/* Metrics */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <MetricCard
-          title="Total Merchants"
-          value={merchantCounts?.total ?? 0}
-          icon={Store}
-        />
-        <MetricCard
-          title="Active Merchants"
-          value={merchantCounts?.active ?? 0}
-          icon={Store}
-        />
-        <MetricCard
-          title="Open Tickets"
-          value={ticketCounts?.open ?? 0}
-          icon={Ticket}
-        />
-        <MetricCard
-          title="Transaction Volume (30d)"
-          value={formatCurrency(totalVolume ?? 0)}
-          icon={DollarSign}
-          loading={volumeLoading}
-        />
+      {/* Metrics with Create Ticket Button */}
+      <div className="flex items-center justify-between">
+        <div className="grid gap-4 md:grid-cols-4 flex-1">
+          <MetricCard
+            title="Total Merchants"
+            value={merchantCounts?.total ?? 0}
+            icon={Store}
+          />
+          <MetricCard
+            title="Active Merchants"
+            value={merchantCounts?.active ?? 0}
+            icon={Store}
+          />
+          <MetricCard
+            title="Open Tickets"
+            value={ticketCounts?.open ?? 0}
+            icon={Ticket}
+          />
+          <MetricCard
+            title="Transaction Volume (30d)"
+            value={formatCurrency(totalVolume ?? 0)}
+            icon={DollarSign}
+            loading={volumeLoading}
+          />
+        </div>
+        <Button onClick={() => setShowTicketForm(true)} className="ml-4">
+          <Plus className="h-4 w-4 mr-2" />
+          Create Ticket
+        </Button>
       </div>
 
       {/* Volume Chart */}
@@ -428,6 +462,11 @@ function AdminDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Ticket Form Dialog */}
+      {showTicketForm && (
+        <TicketForm onClose={() => setShowTicketForm(false)} />
+      )}
     </div>
   )
 }
